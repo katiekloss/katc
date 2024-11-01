@@ -10,11 +10,10 @@ callsign_map = dict()
 async def main():
     broker = await utils.connect_to_rabbit()
     channel = await broker.channel()
-    exc = await channel.get_exchange("mode_s_by_downlink")
+    exc = await channel.get_exchange("adsb")
 
-    queue = await channel.declare_queue("mode_s_tracker", durable = False, exclusive = True)
-    await queue.bind(exc, "17")
-    await queue.bind(exc, "18")
+    queue = await channel.declare_queue("tracker", durable = False, exclusive = True)
+    await queue.bind(exc, "#")
 
     async with queue.iterator() as queue_iter:
         async for message in queue_iter:
@@ -23,13 +22,8 @@ async def main():
 
 async def do_message(message):
     body = message.body.decode()
-    try:
-        icao = pms.icao(body)
-    except:
-        print(f"No ICAO: {body}")
-        return
-
-    tc = pms.adsb.typecode(body)
+    icao = message.headers["icao"]
+    tc = message.headers["typecode"]
     if tc == None:
         print(f"No TC from {icao}: {body}")
         return
@@ -59,7 +53,7 @@ async def do_message(message):
         heading = pms.adsb.velocity(body)
         meaning = f"speed {heading[0]} kt/s heading {heading[1]}"
 
-    print(f"{icao} ({callsign}) sent {tc} on {message.routing_key}: {body} - {meaning}")
+    print(f"{icao} ({callsign}) sent {tc}: {body} - {meaning}")
 
 
 if __name__ == "__main__":
