@@ -15,7 +15,7 @@ async def dump1090_loop() -> None:
 
     rabbit: aio_pika.RobustConnection = await aio_pika.connect_robust(conn_string)
     channel: aio_pika.abc.AbstractChannel = await rabbit.channel()
-    exchange = await channel.get_exchange("mode_s", ensure = True)
+    exchange = await channel.declare_exchange("mode_s", type = aio_pika.ExchangeType.DIRECT)
 
     try:
         source_ip = os.environ["DUMP1090_IP_ADDR"]
