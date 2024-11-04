@@ -75,7 +75,7 @@ async def on_adsb(message):
     if icao not in callsign_map:
         try:
             callsign = await call_rpc("get-callsign", icao)
-            if callsign != None:
+            if callsign != "":
                 callsign_map[icao] = callsign
         except TimeoutError:
             pass
