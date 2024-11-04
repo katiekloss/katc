@@ -59,7 +59,7 @@ async def on_message(message):
     icao = message.headers["icao"]
     data = message.body.decode()
     try:
-        callsign = pms.adsb.callsign(data)
+        callsign = pms.adsb.callsign(data).rstrip("_")
     except:
         logger.warn(f"No callsign: {data}")
         return
