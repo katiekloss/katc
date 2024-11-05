@@ -3,6 +3,11 @@ import aio_pika
 import asyncio
 import os
 import pyModeS as pms
+import daemon
+import sys
+
+from pidlockfile import PIDLockFile
+from setproctitle import setproctitle
 
 async def main():
     try:
@@ -68,4 +73,10 @@ async def route(message, mode_s_exchange, adsb_exchange):
         await adsb_exchange.publish(routed_message, f"icao.{icao}.typecode.{tc}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    if len(sys.argv) < 2:
+        print("mode_s_router.py /var/run/mode_s_router.pid")
+        sys.exit(1)
+
+    with daemon.DaemonContext(pidfile = PIDLockFile(sys.argv[1])):
+        setproctitle("yetanother1090monitor: mode_s_router")
+        asyncio.run(main())
