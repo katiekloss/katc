@@ -6,6 +6,9 @@ name = "pypi"
 [packages]
 aio-pika = "*"
 pymodes = "*"
+python-daemon = "*"
+setproctitle = "*"
+pidlockfile = "*"
 
 [dev-packages]
 

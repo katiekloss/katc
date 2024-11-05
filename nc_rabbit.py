@@ -5,6 +5,10 @@ import aio_pika.abc
 import asyncio
 import time
 import os
+import daemon
+
+from pidlockfile import PIDLockFile
+from setproctitle import setproctitle
 
 async def dump1090_loop() -> None:
     try:
@@ -33,4 +37,10 @@ async def dump1090_loop() -> None:
                                                 timestamp = time.time()),
                                                 routing_key = 'raw')
 
-asyncio.run(dump1090_loop())
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("usage: nc_rabbit.py /var/run/pidfile.pid")
+        sys.exit()
+    with daemon.DaemonContext(pidfile = PIDLockFile(sys.argv[1])):
+        setproctitle("yetanother1090monitor: nc_rabbit")
+        asyncio.run(dump1090_loop())
