@@ -6,10 +6,18 @@ import os
 import pyModeS as pms
 import daemon
 import sys
+import logging
+import logging.handlers
 
 from pidlockfile import PIDLockFile
 from setproctitle import setproctitle
 
+log = logging.getLogger("mode_s_router")
+log.setLevel(logging.INFO)
+syslog = logging.handlers.SysLogHandler(address="/dev/log")
+syslog.ident = "mode_s_router.py: "
+log.addHandler(syslog)
+log.addHandler(logging.StreamHandler())
 
 async def main(args):
     rabbit = await aio_pika.connect_robust(args.rabbit)
@@ -36,6 +44,8 @@ async def main(args):
     await queue.bind("mode_s", "raw")
 
     async with queue.iterator() as queue_iter:
+        log.info(f"Bound to queue {queue.name}")
+
         async for message in queue_iter:
             async with message.process():
                 await route(message, mode_s_exchange, adsb_exchange)
@@ -45,18 +55,18 @@ async def route(message, mode_s_exchange, adsb_exchange):
     try:
         df = pms.df(data)
     except:
-        print(f"Failed to decode: {data}")
+        log.error(f"Failed to decode: {data}")
         return
 
     try:
         icao = pms.icao(data)
     except:
-        print(f"No ICAO on {df}: {data}")
+        log.error(f"No ICAO on {df}: {data}")
         return
 
     tc = pms.adsb.typecode(data)
     if tc == None and 17 <= df <= 18:
-        print(f"No typecode ({df}): {data}")
+        log.error(f"No typecode ({df}): {data}")
         return
 
     routed_message = aio_pika.Message(message.body,
