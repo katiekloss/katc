@@ -7,9 +7,18 @@ import asyncio
 import time
 import os
 import daemon
+import logging
+import logging.handlers
 
 from pidlockfile import PIDLockFile
 from setproctitle import setproctitle
+
+log = logging.getLogger()
+log.setLevel(logging.INFO)
+syslog = logging.handlers.SysLogHandler(address="/dev/log")
+syslog.ident = "nc_rabbit.py: "
+log.addHandler(syslog)
+log.addHandler(logging.StreamHandler())
 
 async def dump1090_loop(args) -> None:
     conn_string = args.rabbit
@@ -19,7 +28,8 @@ async def dump1090_loop(args) -> None:
     exchange = await channel.declare_exchange("mode_s", type = aio_pika.ExchangeType.FANOUT)
 
     reader, writer = await asyncio.open_connection(args.target_ip, 30002)
-    
+    log.info(f"Connected to {args.target_ip}")
+
     async for line in reader:
         now = time.time_ns()
         line = line.rstrip()[1:-1]
