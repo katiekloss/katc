@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import argparse
 import sys
 import aio_pika
 import aio_pika.abc
@@ -10,24 +11,14 @@ import daemon
 from pidlockfile import PIDLockFile
 from setproctitle import setproctitle
 
-async def dump1090_loop() -> None:
-    try:
-        conn_string = os.environ["RABBIT_CONNECTION_STRING"]
-    except KeyError:
-        print("I need a Rabbit connection string in RABBIT_CONNECTION_STRING")
-        return
+async def dump1090_loop(args) -> None:
+    conn_string = args.rabbit
 
     rabbit: aio_pika.RobustConnection = await aio_pika.connect_robust(conn_string)
     channel: aio_pika.abc.AbstractChannel = await rabbit.channel()
     exchange = await channel.declare_exchange("mode_s", type = aio_pika.ExchangeType.DIRECT)
 
-    try:
-        source_ip = os.environ["DUMP1090_IP_ADDR"]
-    except KeyError:
-        print("I need dump1090's IP address in DUMP1090_IP_ADDR")
-        return
-
-    reader, writer = await asyncio.open_connection(source_ip, 30002)
+    reader, writer = await asyncio.open_connection(args.target_ip, 30002)
     
     async for line in reader:
         now = time.time_ns()
@@ -38,9 +29,20 @@ async def dump1090_loop() -> None:
                                                 routing_key = 'raw')
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("usage: nc_rabbit.py /var/run/pidfile.pid")
-        sys.exit()
-    with daemon.DaemonContext(pidfile = PIDLockFile(sys.argv[1])):
-        setproctitle("yetanother1090monitor: nc_rabbit")
-        asyncio.run(dump1090_loop())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--daemon", action="store_true")
+    parser.add_argument("-p", "--pidfile")
+    parser.add_argument("-r", "--rabbit", required=True)
+    parser.add_argument("-t", "--target-ip", required=True)
+    args = parser.parse_args()
+
+    if args.daemon:
+        if args.pidfile is None or len(args.pidfile) == 0:
+            print("-p/--pidfile is required when --daemon is present")
+            sys.exit(1)
+
+        with daemon.DaemonContext(pidfile=PIDLockFile(args.pidfile, timeout=2.0)):
+            setproctitle("yetanother1090monitor: nc_rabbit")
+            asyncio.run(dump1090_loop(args))
+    else:
+        asyncio.run(dump1090_loop(args))
