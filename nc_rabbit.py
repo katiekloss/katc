@@ -16,7 +16,7 @@ async def dump1090_loop(args) -> None:
 
     rabbit: aio_pika.RobustConnection = await aio_pika.connect_robust(conn_string)
     channel: aio_pika.abc.AbstractChannel = await rabbit.channel()
-    exchange = await channel.declare_exchange("mode_s", type = aio_pika.ExchangeType.DIRECT)
+    exchange = await channel.declare_exchange("mode_s", type = aio_pika.ExchangeType.FANOUT)
 
     reader, writer = await asyncio.open_connection(args.target_ip, 30002)
     
