@@ -17,7 +17,10 @@ log.setLevel(logging.INFO)
 syslog = logging.handlers.SysLogHandler(address="/dev/log")
 syslog.ident = "flight_state_tracker.py: "
 log.addHandler(syslog)
-log.addHandler(logging.StreamHandler())
+console = logging.StreamHandler()
+console.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+console.setLevel(logging.DEBUG)
+log.addHandler(console)
 
 rpc_xch = None
 rpcs = dict()
