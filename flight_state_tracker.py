@@ -7,6 +7,7 @@ import asyncio
 import argparse
 import daemon
 import uuid
+import time
 
 from pidlockfile import PIDLockFile
 from setproctitle import setproctitle
@@ -46,7 +47,8 @@ async def main(args):
     await rpc_queue.bind(rpc_xch)
 
     await asyncio.gather(consume(adsb_queue, on_adsb_message),
-                         consume(rpc_queue, on_rpc_message, no_ack = True))
+                         consume(rpc_queue, on_rpc_message, no_ack = True),
+                         session_cleaner())
 
 async def consume(queue, on_message, no_ack = False):
     async with queue.iterator(no_ack = no_ack) as q:
@@ -61,11 +63,35 @@ async def on_adsb_message(message):
     icao = message.headers["icao"]
     data = message.body.decode()
 
+    if icao not in flight_state_last_seen:
+        await flight_state_xch.publish(aio_pika.Message("{}".encode(),
+                                                        headers={"icao": icao}),
+                                       "start")
+        log.info(f"Started session for {icao}")
+
+    flight_state_last_seen[icao] = time.time()
+
 async def on_rpc_message(message):
     if message.correlation_id in rpcs:
         # the completing future will delete its entry. or maybe it shouldn't.
         future = rpcs[message.correlation_id]
         future.set_result(message.body.decode())
+
+async def session_cleaner():
+    while True:
+        await asyncio.sleep(1)
+        now = time.time()
+        to_delete = list()
+        for icao in flight_state_last_seen.keys():
+            if now - flight_state_last_seen[icao] > 45:
+                await flight_state_xch.publish(aio_pika.Message("{}".encode(),
+                                                                headers={"icao":icao}),
+                                               "finish")
+                to_delete.append(icao)
+                log.info(f"Ended session for {icao}")
+
+        for icao in to_delete:
+            del flight_state_last_seen[icao]
 
 async def call_rpc(method_name, args):
     call_id = str(uuid.uuid4())
