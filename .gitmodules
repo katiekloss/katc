@@ -1,0 +1,4 @@
+[submodule "lib/kazoo"]
+	path = lib/kazoo
+	url = https://github.com/ceache/kazoo.git
+	branch = feat/container_ttl
