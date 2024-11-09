@@ -11,6 +11,7 @@ import logging.handlers
 
 from pidlockfile import PIDLockFile
 from setproctitle import setproctitle
+from src import registrations
 
 log = logging.getLogger("mode_s_router")
 log.setLevel(logging.INFO)
@@ -19,7 +20,15 @@ syslog.ident = "mode_s_router.py: "
 log.addHandler(syslog)
 log.addHandler(logging.StreamHandler())
 
+mode_s_exchange = None
+adsb_exchange = None
+flyby_exchange = None
+
 async def main(args):
+    global mode_s_exchange
+    global adsb_exchange
+    global flyby_exchange
+
     rabbit = await aio_pika.connect_robust(args.rabbit)
 
     channel = await rabbit.channel()
@@ -36,7 +45,7 @@ async def main(args):
 
     await drop_queue.bind(mode_s_exchange, "*")
 
-    await channel.set_qos(prefetch_count = 10)
+    flyby_exchange = await registrations.Exchanges.FlybyTraces(channel)
 
     queue = await channel.declare_queue("mode_s_router",
                                         durable = True)
@@ -48,9 +57,9 @@ async def main(args):
 
         async for message in queue_iter:
             async with message.process():
-                await route(message, mode_s_exchange, adsb_exchange)
+                await route(message)
 
-async def route(message, mode_s_exchange, adsb_exchange):
+async def route(message):
     data = message.body.decode()
     try:
         df = pms.df(data)
@@ -77,6 +86,7 @@ async def route(message, mode_s_exchange, adsb_exchange):
     await mode_s_exchange.publish(routed_message, routing_key = str(df))
     if df == 17 or df == 18:
         await adsb_exchange.publish(routed_message, f"icao.{icao}.typecode.{tc}")
+        await flyby_exchange.publish(routed_message, icao)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

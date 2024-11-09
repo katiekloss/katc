@@ -8,9 +8,12 @@ import argparse
 import daemon
 import uuid
 import time
+import subprocess
+import threading
 
 from pidlockfile import PIDLockFile
 from setproctitle import setproctitle
+from src import utils, registrations
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -28,12 +31,15 @@ rpc_id = None
 
 flight_state_xch = None
 flight_state_last_seen = dict()
+flyby_traces_xch = None
+trace_needed_count = dict()
 
-async def main(args):
+async def main():
     global flight_state_xch
     global rpc_xch
     global rpcs
     global rpc_id
+    global flyby_traces_xch
 
     rabbit = await aio_pika.connect_robust(args.rabbit)
     channel = await rabbit.channel()
@@ -54,8 +60,15 @@ async def main(args):
 
     await rpc_queue.bind(rpc_xch)
 
+    flyby_traces_unrouted_xch = await registrations.Exchanges.FlybyTracesUnrouted(channel)
+    flyby_traces_unrouted_queue = await channel.declare_queue(utils.random_string_with_prefix("flight_state_tracker_unrouted_"), exclusive = True)
+    await flyby_traces_unrouted_queue.bind(flyby_traces_unrouted_xch)
+
+    flyby_traces_xch = await registrations.Exchanges.FlybyTraces(channel)
+
     await asyncio.gather(consume(adsb_queue, on_adsb_message),
                          consume(rpc_queue, on_rpc_message, no_ack = True),
+                         consume(flyby_traces_unrouted_queue, on_unrouted_message),
                          session_cleaner())
 
 async def consume(queue, on_message, no_ack = False):
@@ -84,6 +97,21 @@ async def on_rpc_message(message):
         # the completing future will delete its entry. or maybe it shouldn't.
         future = rpcs[message.correlation_id]
         future.set_result(message.body.decode())
+
+async def on_unrouted_message(message):
+    icao = message.headers["icao"]
+    log.info(f"Need to start trace for {icao}")
+    subprocess.run(["pipenv", "run", "./flyby_tracer.py", "-i", icao, "-r", args.rabbit, "-d"])
+
+    # await asyncio.sleep(2)
+    # await flyby_traces_xch.publish(message, icao)
+
+    #if icao in trace_needed_count:
+    #    trace_needed_count[icao] += 1
+    #    log.warning(f"{icao} has needed a trace {trace_needed_count[icao]} time(s)")
+    #else:
+    #    trace_needed_count[icao] = 1
+
 
 async def session_cleaner():
     while True:
@@ -118,6 +146,8 @@ async def call_rpc(method_name, args):
         raise TimeoutError(f"Failed RPC {method_name}({args}): timed out ({call_id})")
 
 if __name__ == "__main__":
+    global args
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--daemon", action="store_true")
     parser.add_argument("-p", "--pidfile")
@@ -131,6 +161,6 @@ if __name__ == "__main__":
 
         with daemon.DaemonContext(pidfile=PIDLockFile(args.pidfile, timeout=2.0)):
             setproctitle("katc: flight_state_tracker.py")
-            asyncio.run(main(args))
+            asyncio.run(main())
     else:
-        asyncio.run(main(args))
+        asyncio.run(main())
