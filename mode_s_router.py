@@ -35,9 +35,7 @@ async def main(args):
     mode_s_exchange = await channel.declare_exchange("mode_s_by_downlink",
                                                      aio_pika.ExchangeType.TOPIC,
                                                      durable = True)
-    adsb_exchange = await channel.declare_exchange("adsb",
-                                                   aio_pika.ExchangeType.TOPIC,
-                                                   durable = True)
+    adsb_exchange = await registrations.Exchanges.ADSB(channel)
 
     drop_queue = await channel.declare_queue("mode_s_by_downlink_default",
                                         durable = False,

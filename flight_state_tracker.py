@@ -43,19 +43,19 @@ async def main():
 
     rabbit = await aio_pika.connect_robust(args.rabbit)
     channel = await rabbit.channel()
-    xch = await channel.get_exchange("adsb")
-    adsb_queue = await channel.declare_queue("", durable=True, exclusive=True)
+    xch = await registrations.Exchanges.ADSB(channel)
+    adsb_queue = await channel.declare_queue(utils.random_string_with_prefix("flight_state_tracker_"), durable=True, exclusive=True)
     await adsb_queue.bind(xch, "#")
 
-    flight_state_xch = await channel.declare_exchange("flight_state_changed", aio_pika.ExchangeType.FANOUT, durable = True)
+    flight_state_xch = await registrations.Exchanges.FlightStateChanges(channel)
     flight_state_stream = await channel.declare_queue("flight_state_changes",
                                                       durable = True,
                                                       arguments={"x-max-age": "7D",
                                                                  "x-queue-type": "stream"})
     await flight_state_stream.bind(flight_state_xch)
 
-    rpc_xch = await channel.declare_exchange("rpc", aio_pika.ExchangeType.DIRECT, durable = True)
-    rpc_queue = await channel.declare_queue("", exclusive = True)
+    rpc_xch = await registrations.Exchanges.RPC(channel)
+    rpc_queue = await channel.declare_queue(utils.random_string_with_prefix("flight_state_tracker_rpc_"), exclusive = True)
     rpc_id = rpc_queue.name
 
     await rpc_queue.bind(rpc_xch)
