@@ -67,11 +67,19 @@ async def main():
     except Cancel as x:
         log.info(x)
     except Exception as x:
-        log.error(f"{x.name}: {x}")
+        log.error(x)
     finally:
         log.info(f"Ended after {total_messages} messages")
+        try:
+            zk.delete(trace_node)
+        except kazoo.exceptions.NoNodeError:
+            ...
 
-        zk.delete(trace_node)
+        try:
+            await trace_queue.delete()
+        except:
+            ...
+
         zk.stop()
         await rabbit.close()
 
@@ -129,7 +137,7 @@ if __name__ == "__main__":
 
     if args.daemon:
         with daemon.DaemonContext():
-            setproctitle(f"katc: flyby_tracer.py [{args.icao}]")
+            setproctitle(f"katc: trace.py [{args.icao}]")
             asyncio.run(main())
     else:
         asyncio.run(main())
