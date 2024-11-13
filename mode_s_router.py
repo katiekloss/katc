@@ -27,7 +27,6 @@ flyby_exchange = None
 async def main(args):
     global mode_s_exchange
     global adsb_exchange
-    global flyby_exchange
 
     rabbit = await aio_pika.connect_robust(args.rabbit)
 
@@ -42,8 +41,6 @@ async def main(args):
                                         arguments = {"x-max-length": 1, "x-overflow": "drop-head"})
 
     await drop_queue.bind(mode_s_exchange, "*")
-
-    flyby_exchange = await registrations.Exchanges.FlybyTraces(channel)
 
     queue = await channel.declare_queue("mode_s_router",
                                         durable = True)
@@ -80,11 +77,10 @@ async def route(message):
                                       headers = {"icao": icao,
                                                  "typecode": tc,
                                                  "downlink": df})
-    
+
     await mode_s_exchange.publish(routed_message, routing_key = str(df))
     if df == 17 or df == 18:
         await adsb_exchange.publish(routed_message, f"icao.{icao}.typecode.{tc}")
-        await flyby_exchange.publish(routed_message, icao)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
