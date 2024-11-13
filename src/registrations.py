@@ -15,5 +15,10 @@ class Exchanges:
                                               aio_pika.ExchangeType.DIRECT,
                                               durable=True)
 
+    async def TracesForHumans(channel):
+        return await channel.declare_exchange("traces_for_humans",
+                                              aio_pika.ExchangeType.FANOUT,
+                                              durable=True)
+
 class Queues:
     ...

@@ -7,6 +7,7 @@ import sys
 import daemon
 import logging
 import logging.handlers
+import pyModeS as pms
 
 from src import utils, registrations
 from setproctitle import setproctitle
@@ -15,12 +16,17 @@ sys.path.append("lib/kazoo")
 import kazoo
 from kazoo.client import KazooClient
 
+last_position = (41.4072, -81.8573)
+last_position_message_ts = None
+last_position_message = ""
 last_seen = None
 total_messages = 0
 ending = False
 zk = None
 log = None
 args = None
+callsign = None
+forward_xch = None
 
 class Cancel(Exception):
     ...
@@ -41,6 +47,7 @@ def configure_logs():
 
 async def main():
     global zk
+    global forward_xch
 
     configure_logs()
 
@@ -60,6 +67,8 @@ async def main():
             trace_queue = await channel.get_queue(trace_queue_name, ensure=True)
         except (kazoo.exceptions.NoNodeError, aio_pika.exceptions.ChannelClosed):
             raise Cancel(f"Can't find a trace for {args.icao}")
+
+        forward_xch = await registrations.Exchanges.TracesForHumans(channel)
 
         log.info(f"Tracing {args.icao} using {trace_queue.name}")
         await asyncio.gather(consume(trace_queue, on_message),
@@ -90,14 +99,71 @@ async def consume(queue, on_message):
                 await on_message(message)
 
 async def on_message(message):
+    global last_position
+    global last_position_message
+    global last_position_message_ts
     global last_seen
     global total_messages
+    global callsign
 
     icao = message.headers["icao"]
+    tc = message.headers["typecode"]
     body = message.body.decode()
+
+    now = time.time()
+    log.debug(f"{icao}: {body}")
+
+    if tc == None:
+        log.warning(f"No TC from {icao}: {body}")
+        return
+
+    meaning = ""
+    if 1 <= tc <= 4 and callsign == None:
+        try:
+            callsign = pms.adsb.callsign(body).rstrip("_ ")
+        except:
+            log.warning(f"Ident message without callsign: {body}")
+            return
+
+        meaning = f"{icao} is now {callsign}"
+
+    if 9 <= tc <= 18 or 20 <= tc <= 22:
+        if last_position_message == "":
+            last_position = pms.adsb.position_with_ref(body, last_position[0], last_position[1])
+            last_position_message = body
+            last_position_message_ts = now
+        elif pms.adsb.oe_flag(last_position_message) != pms.adsb.oe_flag(body):
+            last_position = pms.adsb.position(last_position_message, body, last_position_message_ts, now)
+            last_position_message = body
+            last_position_message_ts = now
+
+        altitude = pms.adsb.altitude(body)
+        if tc <= 18:
+            meaning = f"position {last_position}, at {altitude} ft"
+        else:
+            meaning = f"position {last_position}, at {altitude} m"
+    elif tc == 19:
+        velocity = pms.adsb.velocity(body)
+        speed = int(velocity[0])
+        heading = int(velocity[1])
+        meaning = f"speed {speed} kt/s heading {heading}"
+    elif tc == 28:
+        squawk = pms.adsb.emergency_squawk(body)
+        meaning = f"squawk {squawk}"
+    elif tc == 29:
+        target_altitude = pms.adsb.selected_altitude(body)[0]
+        meaning = f"target altitude {target_altitude} ft"
+    elif tc == 31:
+        meaning = "operational status here"
+    if meaning != "":
+        meaning = f"{icao}/{callsign} sent {tc}: {body} - {meaning}"
+        await forward_xch.publish(aio_pika.Message(meaning.encode(),
+                                                   headers={"icao": icao,
+                                                            "typecode": tc}),
+                                  icao)
+
     last_seen = time.time()
     total_messages += 1
-    log.debug(f"{icao}: {body}")
 
 async def session_watcher():
     global ending
