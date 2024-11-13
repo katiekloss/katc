@@ -104,6 +104,7 @@ async def on_adsb_message(message):
             # TODO: which means we need to lock that ICAO or else messages will be published multiple times
 
             await trace_queue.delete(if_unused = False)
+            return
 
         # see above, does this drop concurrent messages between locking the znode and binding the queue?
         log.info(f"Created {trace_queue} for {icao}, starting trace")
