@@ -11,6 +11,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - run: podman build -t katc .
       - run: podman image save katc --output katc.tar --format oci-archive
       - uses: actions/upload-artifact@v4
