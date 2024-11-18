@@ -11,8 +11,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - run: podman build -t katc -t katc-${{ github.run_id }} .
-      - run: podman image save katc --output katc-${{ github.run_id }}.tar --format oci-archive
+      - run: podman build -t katc .
+      - run: podman image save katc --output katc.tar --format oci-archive
       - uses: actions/upload-artifact@v4
         with:
-          path: katc-${{ github.run_id }}.tar
+          name: katc-${{ github.run_id }}
+          path: katc.tar
