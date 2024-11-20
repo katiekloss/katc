@@ -9,13 +9,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - run: podman build -t katc .
-      - run: podman image save katc --output katc.tar --format oci-archive
+      - run: podman build -t --platform linux/${{ matrix.arch }} katc .
+      - run: podman image save katc --output katc-${{ matrix.arch }}.tar --format oci-archive
       - uses: actions/upload-artifact@v4
         with:
-          name: katc-${{ github.run_id }}
-          path: katc.tar
+          name: katc-${{ matrix.arch }}-${{ github.run_id }}
+          path: katc*.tar
