@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - run: podman build -t --platform linux/${{ matrix.arch }} katc .
+      - run: podman build --platform linux/${{ matrix.arch }} -t katc .
       - run: podman image save katc --output katc-${{ matrix.arch }}.tar --format oci-archive
       - uses: actions/upload-artifact@v4
         with:
