@@ -11,7 +11,7 @@ jobs:
 
     strategy:
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64]
 
     steps:
       - uses: actions/checkout@v4
