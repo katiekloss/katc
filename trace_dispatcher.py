@@ -16,7 +16,6 @@ from redis import Redis
 from pidlockfile import PIDLockFile
 from setproctitle import setproctitle
 from src import utils, registrations
-from pottery import Redlock
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)

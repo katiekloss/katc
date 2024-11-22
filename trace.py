@@ -12,7 +12,6 @@ from redis import Redis
 
 from src import utils, registrations
 from setproctitle import setproctitle
-from pottery import Redlock
 
 last_position = (41.4072, -81.8573)
 last_position_message_ts = None
