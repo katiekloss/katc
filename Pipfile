@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-aio-pika = "*"
+aio-pika = "<9.5.0"
 pymodes = "*"
 python-daemon = "*"
 setproctitle = "*"

@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "49414459876ea990111af63ee9f054c17f7bd25f5631c87f24eca594abfe6e7c"
+            "sha256": "eb250819642dfa36bf23840e90bdcc571230c05f8b3b90eb9a1a18463b650a17"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -18,12 +18,12 @@
     "default": {
         "aio-pika": {
             "hashes": [
-                "sha256:7e03b80fab5a0d354dca45fb5ac95f074b87c639db34c6a1962cabe0fd95bd56",
-                "sha256:d45d49e6543bcdfd2fe4b1a0ee59d931c15a96e99497bc599cf0fddb94061925"
+                "sha256:f1423d2d5a8b7315d144efe1773763bf687ac17aa1535385982687e9e5ed49bb",
+                "sha256:fd2b1fce25f6ed5203ef1dd554dc03b90c9a46a64aaf758d032d78dc31e5295d"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.8' and python_version < '4.0'",
-            "version": "==9.5.0"
+            "version": "==9.4.3"
         },
         "aiormq": {
             "hashes": [
@@ -32,14 +32,6 @@
             ],
             "markers": "python_version >= '3.8' and python_version < '4.0'",
             "version": "==6.8.1"
-        },
-        "exceptiongroup": {
-            "hashes": [
-                "sha256:3111b9d131c238bec2f8f516e123e14ba243563fb135d3fe885990585aa7795b",
-                "sha256:47c2edf7c6738fafb49fd34290706d1a1a2f4d1c6df275526b62cbb4aa5393cc"
-            ],
-            "markers": "python_version >= '3.7'",
-            "version": "==1.2.2"
         },
         "idna": {
             "hashes": [
