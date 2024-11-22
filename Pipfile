@@ -9,6 +9,7 @@ pymodes = "*"
 python-daemon = "*"
 setproctitle = "*"
 pidlockfile = "*"
+redis = "*"
 
 [dev-packages]
 
