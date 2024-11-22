@@ -55,7 +55,7 @@ async def main():
 
     trace_xch = await registrations.Exchanges.Traces(channel)
     adsb_xch = await registrations.Exchanges.ADSB(channel)
-    adsb_queue = await channel.declare_queue("trace_dispatcher_adsb", exclusive=True)
+    adsb_queue = await channel.declare_queue("trace_dispatcher_adsb", durable=True)
     await adsb_queue.bind(adsb_xch, "#")
 
     redis = Redis.from_url(args.redis)
@@ -89,7 +89,7 @@ async def on_adsb_message(message):
     lock_key = f"/katc/{icao}_trace"
 
     if redis.set(lock_key, "dispatch", nx=True, get=True) == None:
-        trace_args = ["python", "./trace.py", "-i", icao, "-r", args.rabbit, "-s", args.redis, "-d"]
+        trace_args = [sys.executable, "./trace.py", "-i", icao, "-r", args.rabbit, "-s", args.redis, "-d"]
         log.info(f"Tracing {icao}")
         subprocess.run(trace_args)
 
