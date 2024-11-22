@@ -89,7 +89,7 @@ async def on_adsb_message(message):
     lock_key = f"/katc/{icao}_trace"
 
     if redis.set(lock_key, "dispatch", nx=True, get=True) == None:
-        trace_args = ["pipenv", "run", "./trace.py", "-i", icao, "-r", args.rabbit, "-s", args.redis, "-d"]
+        trace_args = ["python", "./trace.py", "-i", icao, "-r", args.rabbit, "-s", args.redis, "-d"]
         log.info(f"Tracing {icao}")
         subprocess.run(trace_args)
 
