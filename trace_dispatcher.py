@@ -11,15 +11,12 @@ import time
 import subprocess
 import threading
 import sys
+from redis import Redis
 
 from pidlockfile import PIDLockFile
 from setproctitle import setproctitle
 from src import utils, registrations
-
-sys.path.append("lib/kazoo")
-
-import kazoo
-from kazoo.client import KazooClient
+from pottery import Redlock
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -37,16 +34,16 @@ rpcs = dict()
 rpc_id = None
 trace_xch = None
 channel = None
-zk = None
 
 async def main():
     global rpc_xch
     global rpcs
     global rpc_id
-    global zk
+    global redis
     global adsb_xch
     global trace_xch
     global channel
+    global redlock
 
     rabbit = await aio_pika.connect_robust(args.rabbit)
     channel = await rabbit.channel()
@@ -59,18 +56,19 @@ async def main():
 
     trace_xch = await registrations.Exchanges.Traces(channel)
     adsb_xch = await registrations.Exchanges.ADSB(channel)
-    adsb_queue = await channel.declare_queue("trace_dispatcher_adsb")
+    adsb_queue = await channel.declare_queue("trace_dispatcher_adsb", exclusive=True)
     await adsb_queue.bind(adsb_xch, "#")
 
-    zk = KazooClient(hosts=args.zookeeper)
-    zk.start()
+    redis = Redis.from_url(args.redis)
 
     try:
         await asyncio.gather(consume(rpc_queue, on_rpc_message, no_ack = True),
                              consume(adsb_queue, on_adsb_message))
+    except asyncio.exceptions.CancelledError:
+        pass
     finally:
-        zk.stop()
         await rabbit.close()
+        redis.close()
 
 async def consume(queue, on_message, no_ack = False):
     async with queue.iterator(no_ack = no_ack) as q:
@@ -89,29 +87,12 @@ async def on_rpc_message(message):
 
 async def on_adsb_message(message):
     icao = message.headers["icao"]
-    trace_znode= f"/katc/{icao}_trace"
-    if not zk.exists(trace_znode):
-        trace_queue = await channel.declare_queue(utils.random_string_with_prefix(f"trace_{icao}_"),
-                                                  durable=False,
-                                                  auto_delete=True,
-                                                  arguments={"x-expires": 5 * 60 * 1000})
-        try:
-            # create the znode with the name of the queue to be consumed
-            zk.create(trace_znode, trace_queue.name.encode())
-        except kazoo.exceptions.NodeExistsError:
-            other_queue = zk.get(trace_znode)
-            log.info(f"Beaten to {icao} by {other_queue}, deleting {trace_queue.name}")
-            # TODO: which means we need to lock that ICAO or else messages will be published multiple times
+    lock_key = f"/katc/{icao}_trace"
 
-            await trace_queue.delete(if_unused = False)
-            return
-
-        # see above, does this drop concurrent messages between locking the znode and binding the queue?
-        log.info(f"Created {trace_queue} for {icao}, starting trace")
-        await trace_queue.bind(trace_xch, icao)
-        subprocess.run(["pipenv", "run", "./trace.py", "-i", icao, "-r", args.rabbit, "-z", args.zookeeper, "-d"])
-
-    await trace_xch.publish(message, icao, mandatory=True)
+    if redis.set(lock_key, "dispatch", nx=True, get=True) == None:
+        trace_args = ["pipenv", "run", "./trace.py", "-i", icao, "-r", args.rabbit, "-s", args.redis, "-d"]
+        log.info(f"Tracing {icao}")
+        subprocess.run(trace_args)
 
 async def call_rpc(method_name, args):
     call_id = str(uuid.uuid4())
@@ -136,7 +117,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--daemon", action="store_true")
     parser.add_argument("-p", "--pidfile")
     parser.add_argument("-r", "--rabbit", required=True)
-    parser.add_argument("-z", "--zookeeper", required=True)
+    parser.add_argument("-s", "--redis", required=True)
     args = parser.parse_args()
 
     if args.daemon:

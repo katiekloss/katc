@@ -8,13 +8,11 @@ import daemon
 import logging
 import logging.handlers
 import pyModeS as pms
+from redis import Redis
 
 from src import utils, registrations
 from setproctitle import setproctitle
-
-sys.path.append("lib/kazoo")
-import kazoo
-from kazoo.client import KazooClient
+from pottery import Redlock
 
 last_position = (41.4072, -81.8573)
 last_position_message_ts = None
@@ -22,7 +20,6 @@ last_position_message = ""
 last_seen = None
 total_messages = 0
 ending = False
-zk = None
 log = None
 args = None
 callsign = None
@@ -46,7 +43,6 @@ def configure_logs():
     log.addHandler(console)
 
 async def main():
-    global zk
     global forward_xch
 
     configure_logs()
@@ -54,42 +50,46 @@ async def main():
     rabbit = await aio_pika.connect_robust(args.rabbit)
     channel = await rabbit.channel()
 
-    zk = KazooClient(hosts=args.zookeeper)
-    zk.start()
+    lock_key = f"/katc/{args.icao}_trace"
 
-    trace_node = f"/katc/{args.icao}_trace"
-
+    redis = Redis.from_url(args.redis)
+    val = redis.set(lock_key, "trace", get=True)
+    if val != None and val.decode() == "trace":
+       raise Cancel(f"Conflicted over {args.icao}, quitting")
 
     try:
-
-        try:
-            trace_queue_name = zk.get(trace_node)[0].decode()
-            trace_queue = await channel.get_queue(trace_queue_name, ensure=True)
-        except (kazoo.exceptions.NoNodeError, aio_pika.exceptions.ChannelClosed):
-            raise Cancel(f"Can't find a trace for {args.icao}")
+        log.info(f"Locked {args.icao}")
+        trace_queue = await channel.declare_queue(utils.random_string_with_prefix(f"trace_{args.icao}_"),
+                                                        durable=False,
+                                                        auto_delete=True,
+                                                        arguments={"x-expires": 5 * 60 * 1000})
 
         forward_xch = await registrations.Exchanges.TracesForHumans(channel)
+        trace_xch = await registrations.Exchanges.ADSB(channel)
+        await trace_queue.bind(trace_xch, f"icao.{args.icao}.#")
 
         log.info(f"Tracing {args.icao} using {trace_queue.name}")
+
         await asyncio.gather(consume(trace_queue, on_message),
                              session_watcher())
     except Cancel as x:
         log.info(x)
     except Exception as x:
         log.error(x)
+    except asyncio.exceptions.CancelledError:
+        ...
     finally:
-        log.info(f"Ended after {total_messages} messages")
         try:
-            zk.delete(trace_node)
-        except kazoo.exceptions.NoNodeError:
-            ...
+            redis.delete(lock_key)
+        except:
+            log.warning(f"Couldn't unlock {args.icao}")
+
+        log.info(f"Ended after {total_messages} messages")
 
         try:
             await trace_queue.delete()
         except:
             ...
-
-        zk.stop()
         await rabbit.close()
 
 async def consume(queue, on_message):
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--icao", required=True)
     parser.add_argument("-r", "--rabbit", required=True)
     parser.add_argument("-d", "--daemon", action="store_true")
-    parser.add_argument("-z", "--zookeeper", required=True)
+    parser.add_argument("-s", "--redis", required=True)
     parser.add_argument("-x", "--exclusive", action="store_true")
     args = parser.parse_args()
 
