@@ -8,7 +8,6 @@ import daemon
 import logging
 import logging.handlers
 import pyModeS as pms
-from redis import Redis
 
 from src import utils, registrations
 from setproctitle import setproctitle
@@ -32,10 +31,6 @@ def configure_logs():
 
     log = logging.getLogger()
     log.setLevel(logging.INFO)
-    syslog = logging.handlers.SysLogHandler(address="/dev/log")
-    syslog.ident = "trace.py: "
-    syslog.setFormatter(logging.Formatter(f"{args.icao} - %(message)s"))
-    log.addHandler(syslog)
     console = logging.StreamHandler()
     console.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     console.setLevel(logging.DEBUG)
@@ -49,15 +44,7 @@ async def main():
     rabbit = await aio_pika.connect_robust(args.rabbit)
     channel = await rabbit.channel()
 
-    lock_key = f"/katc/{args.icao}_trace"
-
-    redis = Redis.from_url(args.redis)
-    val = redis.set(lock_key, "trace", get=True)
-    if val != None and val.decode() == "trace":
-       raise Cancel(f"Conflicted over {args.icao}, quitting")
-
     try:
-        log.info(f"Locked {args.icao}")
         trace_queue = await channel.declare_queue(utils.random_string_with_prefix(f"trace_{args.icao}_"),
                                                         durable=False,
                                                         auto_delete=True,
@@ -78,11 +65,6 @@ async def main():
     except asyncio.exceptions.CancelledError:
         ...
     finally:
-        try:
-            redis.delete(lock_key)
-        except:
-            log.warning(f"Couldn't unlock {args.icao}")
-
         log.info(f"Ended after {total_messages} messages")
 
         try:
@@ -196,7 +178,6 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--icao", required=True)
     parser.add_argument("-r", "--rabbit", required=True)
     parser.add_argument("-d", "--daemon", action="store_true")
-    parser.add_argument("-s", "--redis", required=True)
     parser.add_argument("-x", "--exclusive", action="store_true")
     args = parser.parse_args()
 
