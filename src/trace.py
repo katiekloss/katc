@@ -9,7 +9,7 @@ import logging
 import logging.handlers
 import pyModeS as pms
 
-from src import utils, registrations
+from katc import utils, registrations
 from setproctitle import setproctitle
 
 last_position = (41.4072, -81.8573)

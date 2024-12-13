@@ -11,7 +11,7 @@ import logging.handlers
 
 from pidlockfile import PIDLockFile
 from setproctitle import setproctitle
-from src import registrations
+from katc import registrations
 
 log = logging.getLogger("mode_s_router")
 log.setLevel(logging.INFO)

@@ -7,7 +7,7 @@ import daemon
 import aio_pika
 import subprocess
 
-from src import registrations
+from katc import registrations
 from redis import asyncio as aioredis
 
 async def main():

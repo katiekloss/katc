@@ -14,7 +14,7 @@ import sys
 
 from pidlockfile import PIDLockFile
 from setproctitle import setproctitle
-from src import utils, registrations
+from katc import utils, registrations
 from aio_pika.exceptions import DeliveryError
 from redis import asyncio as aioredis
 
