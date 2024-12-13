@@ -17,6 +17,6 @@ FROM base AS final
 COPY --from=deps /.venv /.venv
 
 WORKDIR /app
-COPY . .
+COPY src/ .
 
 ENTRYPOINT ["/.venv/bin/python"]
