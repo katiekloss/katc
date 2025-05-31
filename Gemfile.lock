@@ -1,0 +1,17 @@
+PATH
+  remote: vendor/ruby-adsb
+  specs:
+    ruby-adsb (0.2.2)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  ruby-adsb!
+
+BUNDLED WITH
+   1.17.2
