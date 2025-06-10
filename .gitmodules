@@ -1,6 +1,0 @@
-[submodule "godot/addons/rabbit-gd"]
-	path = godot/addons/rabbit-gd
-	url = https://github.com/arnemileswinter/rabbitgd.git
-[submodule "ruby-adsb"]
-	path = vendor/ruby-adsb
-	url = git@github.com:katiekloss/ruby-adsb.git
