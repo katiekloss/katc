@@ -6,15 +6,15 @@ s = TCPSocket.new ENV['DUMP1090_HOST'], 30002
 while line = s.gets
   line = line[1..-3]
   begin
-    msg = ADSB::Message.parse(line)
-    next unless msg.is_a?(ADSB::Messages::Base)
+    msg = ADSB::Message.new(line)
+    next unless msg.respond_to?(:type_code)
 
     human = case
-    when msg.is_a?(ADSB::Messages::Identification)
+    when msg.respond_to?(:identification)
       "ident #{msg.identification}"
-    when msg.is_a?(ADSB::Messages::Position)
+    when msg.respond_to?(:latitude)
       "position #{msg.latitude} #{msg.longitude}"
-    when msg.is_a?(ADSB::Messages::Velocity)
+    when msg.respond_to?(:heading)
       "heading #{msg.heading} velocity #{msg.velocity}"
     else
       ""

@@ -1,4 +1,3 @@
 source 'https://rubygems.org'
 
-gem 'ruby-adsb', path: 'vendor/ruby-adsb', require: 'adsb'
-gem "minitest", "~> 5.25"
+gem 'ruby-adsb', github: 'katiekloss/ruby-adsb', branch: 'main'
