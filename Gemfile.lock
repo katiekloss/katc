@@ -8,12 +8,13 @@ GIT
 GEM
   remote: https://rubygems.org/
   specs:
+    pg (1.5.9)
 
 PLATFORMS
-  ruby
   x86_64-darwin-24
 
 DEPENDENCIES
+  pg (~> 1.5)
   ruby-adsb!
 
 BUNDLED WITH
