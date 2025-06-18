@@ -1,20 +1,17 @@
+$: << File.expand_path(File.dirname(__FILE__))
+
 require 'socket'
-require 'adsb'
 require 'pg'
+require 'date'
+require 'adsb'
+require 'katc/schema'
+
+db = PG.connect ENV['PG_URL']
+db.type_map_for_results = PG::BasicTypeMapForResults.new db
+
+KATC::Schema.migrate(db)
 
 s = TCPSocket.new ENV['DUMP1090_HOST'], 30002
-db = PG.connect ENV['PG_URL']
-
-db.exec <<-SQL
-CREATE TABLE IF NOT EXISTS
-contacts
-(
-  address char(6)                         NOT NULL PRIMARY KEY,
-  callsign varchar(10)                    NULL,
-  last_seen timestamp(0) with time zone   NOT NULL
-);
-SQL
-
 while line = s.gets
   line = line[1..-3]
 
