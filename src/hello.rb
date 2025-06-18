@@ -19,28 +19,55 @@ while line = s.gets
     msg = ADSB::Message.new(line)
     next unless msg.respond_to?(:type_code)
 
-    human = case
-    when msg.respond_to?(:identification)
-      "ident #{msg.identification}"
-    when msg.respond_to?(:latitude)
-      "position #{msg.latitude} #{msg.longitude}"
-    when msg.respond_to?(:heading)
-      "heading #{msg.heading} velocity #{msg.velocity}"
-    else
-      ""
-    end
+    if ENV["DEBUG"] != nil
+      human = case
+      when msg.respond_to?(:identification)
+        "ident #{msg.identification}"
+      when msg.respond_to?(:latitude)
+        "position #{msg.latitude} #{msg.longitude}"
+      when msg.respond_to?(:heading)
+        "heading #{msg.heading} velocity #{msg.velocity}"
+      else
+        ""
+      end
 
-    puts "#{msg.type_code.to_s.rjust(2)} #{msg.address} #{line} #{human}"
+      puts "#{msg.type_code.to_s.rjust(2)} #{msg.address} #{line} #{human}"
+    end
     
     db.exec("
-      INSERT INTO contacts (address, callsign, last_seen)
-      VALUES ($1, $2, current_timestamp)
+      INSERT INTO vehicles (address, last_seen)
+      VALUES ($1, current_timestamp)
       ON CONFLICT (address) DO UPDATE
-      SET callsign = COALESCE($2, contacts.callsign),
-          last_seen = current_timestamp
+      SET last_seen = current_timestamp
     ",
-    [msg.address, if msg.respond_to?(:identification) then msg.identification else nil end])
+    [msg.address])
 
+    last_contact = db.exec(
+      "SELECT last_at, started_at FROM contacts WHERE address = $1 ORDER BY last_at DESC LIMIT 1",
+      [msg.address])
+
+    if last_contact.cmd_tuples() > 0 && Time.now.to_i - last_contact.getvalue(0, 0).to_i < 600
+      started_at = last_contact.getvalue(0, 1)
+      db.exec("UPDATE contacts SET last_at = current_timestamp WHERE address = $1 AND started_at = $2", [msg.address, started_at])
+    else
+      last_contact = db.exec("
+        INSERT INTO contacts (address, started_at, last_at)
+        VALUES ($1, current_timestamp, current_timestamp)
+        RETURNING started_at",
+        [msg.address])
+      started_at = last_contact.getvalue(0, 0)
+    end
+
+    if msg.respond_to?(:identification)
+      db.exec(
+        "UPDATE contacts SET callsign = $1 WHERE address = $2 AND started_at = $3",
+        [msg.identification, msg.address, started_at])
+    end
+
+    db.exec("
+      INSERT INTO contact_logs (address, contact_started_at, received_at, line)
+      VALUES ($1, $2, current_timestamp, $3)",
+      [msg.address, started_at, line])
   rescue ArgumentError => e
     puts "Unknown parse error in #{line}"
     raise e
