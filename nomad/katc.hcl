@@ -11,6 +11,17 @@ job "katc" {
         BUNDLE_PATH = "${NOMAD_ALLOC_DIR}/tmp/bundle"
         PATH = "${PATH}:/usr/local/bin"
       }
+
+      template {
+        data = <<EOH
+{{ with nomadVar "nomad/jobs/katc" }}
+DUMP1090_HOST={{ .dump1090_host }}
+PG_URL={{ .pg_url }}
+{{ end -}}
+        EOH
+        destination = "secrets/secrets.env"
+        env = true
+      }
     }
 
     task "download" {
