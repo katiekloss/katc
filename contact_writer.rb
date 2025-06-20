@@ -1,10 +1,10 @@
-$: << File.expand_path(File.dirname(__FILE__))
+$: << File.expand_path('lib')
 
 require 'socket'
 require 'pg'
 require 'date'
 require 'adsb'
-require 'katc/schema'
+require 'db/schema'
 
 db = PG.connect ENV['PG_URL']
 db.type_map_for_results = PG::BasicTypeMapForResults.new db
@@ -18,21 +18,6 @@ while line = s.gets
   begin
     msg = ADSB::Message.new(line)
     next unless msg.respond_to?(:type_code)
-
-    if ENV["DEBUG"] != nil
-      human = case
-      when msg.respond_to?(:identification)
-        "ident #{msg.identification}"
-      when msg.respond_to?(:latitude)
-        "position #{msg.latitude} #{msg.longitude}"
-      when msg.respond_to?(:heading)
-        "heading #{msg.heading} velocity #{msg.velocity}"
-      else
-        ""
-      end
-
-      puts "#{msg.type_code.to_s.rjust(2)} #{msg.address} #{line} #{human}"
-    end
     
     db.exec("
       INSERT INTO vehicles (address, last_seen)

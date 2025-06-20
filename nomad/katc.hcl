@@ -4,7 +4,7 @@ job "katc" {
       driver = "raw_exec"
       config {
         command = "/usr/local/bin/bundle"
-        args = ["exec", "ruby", "src/contact_writer.rb"]
+        args = ["exec", "ruby", "contact_writer.rb"]
         work_dir = "${NOMAD_ALLOC_DIR}/katc"
       }
       env {
