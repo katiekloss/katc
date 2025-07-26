@@ -43,7 +43,7 @@ PG_URL={{ .pg_url }}
       }
 
       artifact {
-        source = "git::https://github.com/katiekloss/katc"
+        source = "git::https://code.kat5.dev/kat/katc.git"
         destination = "${NOMAD_ALLOC_DIR}/katc"
       }
     }
