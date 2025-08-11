@@ -1,37 +1,38 @@
-$: << File.expand_path('lib')
+$: << File.expand_path("lib")
 
-require 'socket'
-require 'pg'
-require 'date'
-require 'adsb'
-require 'db/schema'
+require "socket"
+require "pg"
+require "date"
+require "adsb"
+require "db/schema"
 
-db = PG.connect ENV['PG_URL']
+db = PG.connect ENV["PG_URL"]
 db.type_map_for_results = PG::BasicTypeMapForResults.new db
 
 KATC::Schema.migrate(db)
 
-s = TCPSocket.new ENV['DUMP1090_HOST'], 30002
-while line = s.gets
+s = TCPSocket.new ENV["DUMP1090_HOST"], 30002
+while (line = s.gets)
   line = line[1..-3]
 
   begin
     msg = ADSB::Message.new(line)
     next unless msg.respond_to?(:type_code)
-    
+
     db.exec("
       INSERT INTO vehicles (address, last_seen)
       VALUES ($1, current_timestamp)
       ON CONFLICT (address) DO UPDATE
       SET last_seen = current_timestamp
     ",
-    [msg.address])
+      [msg.address])
 
     last_contact = db.exec(
       "SELECT last_at, started_at FROM contacts WHERE address = $1 ORDER BY last_at DESC LIMIT 1",
-      [msg.address])
+      [msg.address]
+    )
 
-    if last_contact.cmd_tuples() > 0 && Time.now.to_i - last_contact.getvalue(0, 0).to_i < 600
+    if last_contact.cmd_tuples > 0 && Time.now.to_i - last_contact.getvalue(0, 0).to_i < 600
       started_at = last_contact.getvalue(0, 1)
       db.exec("UPDATE contacts SET last_at = current_timestamp WHERE address = $1 AND started_at = $2", [msg.address, started_at])
     else
@@ -45,8 +46,9 @@ while line = s.gets
 
     if msg.respond_to?(:identification)
       db.exec(
-        "UPDATE contacts SET callsign = $1 WHERE address = $2 AND started_at = $3",
-        [msg.identification, msg.address, started_at])
+        "UPDATE contacts SET callsign = $1 WHERE address = $2 AND started_at = $3 AND callsign IS NULL",
+        [msg.identification, msg.address, started_at]
+      )
     end
 
     db.exec("
