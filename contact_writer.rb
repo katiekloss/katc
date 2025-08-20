@@ -1,6 +1,6 @@
 $: << File.expand_path("lib")
 
-require "socket"
+require "bunny"
 require "pg"
 require "date"
 require "adsb"
@@ -11,9 +11,14 @@ db.type_map_for_results = PG::BasicTypeMapForResults.new db
 
 KATC::Schema.migrate(db)
 
-s = TCPSocket.new ENV["DUMP1090_HOST"], 30002
-while (line = s.gets)
-  line = line[1..-3]
+rmq = Bunny.new()
+rmq.start()
+rmqc = rmq.create_channel()
+q = rmqc.queue('contact_writer')
+q.bind('mode_s')
+
+q.subscribe(block: true) do |info, properties, body|
+  line = body
 
   begin
     msg = ADSB::Message.new(line)
