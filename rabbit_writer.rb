@@ -1,4 +1,5 @@
-#$: << File.expand_path('lib')
+# frozen_string_literal: true
+
 require 'bunny'
 require 'socket'
 
