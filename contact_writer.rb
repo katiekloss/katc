@@ -15,7 +15,8 @@ rmq = Bunny.new
 rmq.start
 rmqc = rmq.create_channel
 q = rmqc.queue('contact_writer', exclusive: true)
-q.bind('mode_s')
+xch = rmqc.exchange('katc', type: 'topic')
+q.bind(xch, routing_key: 'mode_s')
 
 begin
   q.subscribe(block: true) do |_info, _properties, body|
@@ -46,21 +47,24 @@ begin
       RETURNING started_at",
                              [msg.address])
       started_at = last_contact.getvalue(0, 0)
-    end
 
-    db.exec("
-    INSERT INTO contact_logs (address, contact_started_at, received_at, line)
-    VALUES ($1, $2, current_timestamp, $3)",
-            [msg.address, started_at, body])
+      xch.publish(body, routing_key: 'contact_started')
+    end
 
     if msg.respond_to?(:identification)
       db.exec(
         'UPDATE contacts SET callsign = $1 WHERE address = $2 AND started_at = $3 AND callsign IS NULL',
         [msg.identification, msg.address, started_at]
       )
+
+      xch.publish(body, routing_key: 'contact_identified')
     end
 
-    rmqc.default_exchange.publish(body, routing_key: 'adsb')
+    db.exec("
+    INSERT INTO contact_logs (address, contact_started_at, received_at, line)
+    VALUES ($1, $2, current_timestamp, $3)",
+            [msg.address, started_at, body])
+    xch.publish(body, routing_key: 'adsb')
   end
 rescue ArgumentError => e
   puts "Unknown parse error in #{line}: #{e}"
