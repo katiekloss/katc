@@ -1,15 +1,5 @@
 job "katc" {
-  type = "batch"
-
   group "contact_writer" {
-    task "dump1090" {
-      driver = "raw_exec"
-      config {
-        command = "/root/dump1090-fa/dump1090"
-        args = ["--net", "--quiet"]
-      }
-    }
-
     task "run" {
       driver = "raw_exec"
 
@@ -75,6 +65,18 @@ PG_URL={{ .pg_url }}
       value = "tisiphone.hq.kat5.dev"
     }
 
+    task "dump1090" {
+      driver = "raw_exec"
+      config {
+        command = "/root/dump1090-fa/dump1090"
+        args = ["--net", "--quiet"]
+      }
+
+      resources {
+        cpu = 300
+      }
+    }
+
     task "download" {
       lifecycle {
         hook = "prestart"
@@ -115,7 +117,7 @@ PG_URL={{ .pg_url }}
         data = <<EOH
 {{ with nomadVar "nomad/jobs/katc" }}
 RABBITMQ_URL={{ .rabbitmq_url }}
-DUMP1090_HOSTNAME=tisiphone.hq.kat5.dev
+DUMP1090_HOSTNAME=localhost
 {{ end -}}
         EOH
         destination = "secrets/secrets.env"
