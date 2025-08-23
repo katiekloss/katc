@@ -117,7 +117,7 @@ PG_URL={{ .pg_url }}
         data = <<EOH
 {{ with nomadVar "nomad/jobs/katc" }}
 RABBITMQ_URL={{ .rabbitmq_url }}
-DUMP1090_HOSTNAME=localhost
+DUMP1090_HOSTNAME={{ .dump1090_host }}
 {{ end -}}
         EOH
         destination = "secrets/secrets.env"

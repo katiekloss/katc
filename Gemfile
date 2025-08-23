@@ -9,3 +9,5 @@ gem "puma", "~> 6.6"
 
 gem "standard", ">= 1.35.1"
 gem "bunny", "~> 2.24"
+
+gem "net_http_unix", "~> 0.2.2"
