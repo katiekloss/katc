@@ -115,13 +115,13 @@ PG_URL={{ .pg_url }}
     }
   }
 
-  group "contact_watcher_dispatcher" {
+  group "track_follower" {
     task "run" {
       driver = "raw_exec"
 
       config {
         command = "/usr/bin/bundle"
-        args = ["exec", "ruby", "nomad/contact_watcher_entry.rb"]
+        args = ["exec", "ruby", "track_follower.rb"]
         work_dir = "${NOMAD_ALLOC_DIR}/katc/"
       }
 
