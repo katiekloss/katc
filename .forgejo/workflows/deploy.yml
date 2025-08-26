@@ -1,0 +1,24 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+
+env:
+  NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
+  NOMAD_TOKEN: ${{ vars.NOMAD_TOKEN }}
+  NOMAD_CLIENT_CERT: nomad.pem
+  NOMAD_CLIENT_KEY: nomad-key.pem
+  NOMAD_CACERT: nomad-ca.pem
+
+jobs:
+  deploy:
+    runs-on: docker
+    steps:
+    - uses: actions/checkout@v4
+    - uses: https://github.com/hashicorp/setup-nomad@main
+    - name: Nomad
+      run: |
+        echo "${{ secrets.NOMAD_CACERT }}" > nomad-ca.pem
+        echo "${{ secrets.NOMAD_CERT }}" > nomad.pem
+        echo "${{ secrets.NOMAD_KEY }}" > nomad-key.pem
+        nomad node status
