@@ -60,10 +60,6 @@ begin
       xch.publish(body, routing_key: 'contact_identified')
     end
 
-    db.exec("
-    INSERT INTO contact_logs (address, contact_started_at, received_at, line)
-    VALUES ($1, $2, current_timestamp, $3)",
-            [msg.address, started_at, body])
     xch.publish(body, routing_key: 'adsb')
   end
 rescue ArgumentError => e
