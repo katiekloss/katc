@@ -12,5 +12,5 @@ xch = channel.topic('katc')
 
 while (line = s.gets)
   line = line[1..-3]
-  xch.publish(line, routing_key: "mode_s")
+  xch.publish(line, routing_key: "mode_s", content_type: "text/plain")
 end

@@ -48,7 +48,7 @@ begin
                              [msg.address])
       started_at = last_contact.getvalue(0, 0)
 
-      xch.publish(body, routing_key: 'contact_started')
+      xch.publish(body, routing_key: 'contact_started', content_type: "text/plain")
     end
 
     if msg.respond_to?(:identification)
@@ -60,7 +60,7 @@ begin
       xch.publish(body, routing_key: 'contact_identified')
     end
 
-    xch.publish(body, routing_key: 'adsb')
+    xch.publish(body, routing_key: 'adsb', content_type: "text/plain")
   end
 rescue ArgumentError => e
   puts "Unknown parse error in #{line}: #{e}"
