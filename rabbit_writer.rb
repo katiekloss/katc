@@ -8,7 +8,7 @@ s = TCPSocket.new(ENV['DUMP1090_HOSTNAME'], 30002)
 
 connection.start
 channel = connection.create_channel
-xch = channel.exchange('katc', type: 'topic')
+xch = channel.topic('katc')
 
 while (line = s.gets)
   line = line[1..-3]

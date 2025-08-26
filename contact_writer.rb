@@ -15,7 +15,7 @@ rmq = Bunny.new
 rmq.start
 rmqc = rmq.create_channel
 q = rmqc.queue('contact_writer', exclusive: true)
-xch = rmqc.exchange('katc', type: 'topic')
+xch = rmqc.topic('katc')
 q.bind(xch, routing_key: 'mode_s')
 
 begin
